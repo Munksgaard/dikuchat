@@ -50,7 +50,6 @@ server_loop(Userlist) ->
             end,
             server_loop(Userlist);
         {From, quit} ->
-            io:format("~p quit!~n", [From]),
             case pidlookup(Userlist, From) of
                 {ok, Name} -> server_loop(lists:delete({Name, From}, Userlist));
                 _ -> server_loop(Userlist)
