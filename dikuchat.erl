@@ -75,8 +75,8 @@ acceptor(Server, ListenSocket) ->
 
 prettifyWho([]) -> [];
 prettifyWho([User, User2 | Userlist]) ->
-    User ++ ", " ++ prettifyWho([User2 | Userlist]);
-prettifyWho([User | _]) -> User ++ "\n".
+    User ++ " " ++ prettifyWho([User2 | Userlist]);
+prettifyWho([User | _]) -> User.
 
 strip(String) ->
     string:left(String, string:cspan(String, "\r\n")).
@@ -86,30 +86,30 @@ handle(Server, Socket) ->
     inet:setopts(Socket, [{active, once}]),
     receive
         {Server, {broadcast, Name, Msg}} ->
-            gen_tcp:send(Socket, "broadcast " ++ Name ++ " " ++ Msg ++ "\n"),
+            gen_tcp:send(Socket, "FROM " ++ Name ++ " " ++ Msg ++ "\r\n"),
             handle(Server, Socket);
-        {tcp, Socket, <<"quit", _/binary>>} ->
+        {tcp, Socket, <<"QUIT", _/binary>>} ->
             Server ! {self(), quit},
             gen_tcp:close(Socket);
-        {tcp, Socket, <<"who", _/binary>>} ->
+        {tcp, Socket, <<"WHO", _/binary>>} ->
             WhoList = rpc(Server, who),
-            gen_tcp:send(Socket, "who " ++ prettifyWho(WhoList)),
+            gen_tcp:send(Socket, "NAMES " ++ prettifyWho(WhoList) ++ "\r\n"),
             handle(Server, Socket);
-        {tcp, Socket, <<"name ", Name/binary>>} ->
+        {tcp, Socket, <<"NAME ", Name/binary>>} ->
             SName = strip(binary:bin_to_list(Name)),
             case rpc(Server, {name, SName}) of
-                ok -> gen_tcp:send(Socket, "name " ++ SName ++ "\n"),
+                ok -> gen_tcp:send(Socket, "NAME " ++ SName ++ "\r\n"),
                       handle(Server, Socket);
-                exists -> gen_tcp:send(Socket, "exists\n"),
+                exists -> gen_tcp:send(Socket, "EXISTS\r\n"),
                           handle(Server, Socket)
             end;
-        {tcp, Socket, <<"broadcast ", Msg/binary>>} ->
+        {tcp, Socket, <<"BROADCAST ", Msg/binary>>} ->
             case rpc(Server, {broadcast, strip(binary:bin_to_list(Msg))}) of
                 ok -> handle(Server, Socket);
-                _ -> gen_tcp:send(Socket, "noname\n"),
+                _ -> gen_tcp:send(Socket, "NONAME\r\n"),
                      handle(Server, Socket)
             end;
         {tcp, Socket, Msg} ->
-            gen_tcp:send(Socket, "error " ++ binary:bin_to_list(Msg)),
+            gen_tcp:send(Socket, "ERROR " ++ binary:bin_to_list(Msg)),
             handle(Server, Socket)
     end.
